@@ -685,10 +685,14 @@ function renderList() {
     item.className = 'channel-item' + (realIdx === activeIdx ? ' active' : '');
     item.dataset.idx = realIdx;
 
-    const logoHtml = ch.logo
-      ? `<img class="ch-logo" src="${escHtml(ch.logo)}" onerror="this.style.display='none';this.nextSibling.style.display='flex'" alt="">`
-        + `<div class="ch-placeholder" style="display:none">${escHtml(ch.name.charAt(0))}</div>`
-      : `<div class="ch-placeholder">${escHtml(ch.name.charAt(0))}</div>`;
+    const logoUrl = (ch.logo && window.location.protocol === 'https:' && ch.logo.startsWith('http://'))
+      ? `?action=proxy&url=${encodeURIComponent(ch.logo)}`
+      : ch.logo;
+
+    const logoHtml = logoUrl
+      ? `<img class="ch-logo" src="${escHtml(logoUrl)}" onerror="handleLogoError(this, '${escHtml(ch.logo)}')" alt="">`
+        + `<div class="ch-placeholder" style="display:none">${escHtml(ch.name.charAt(0) || '?')}</div>`
+      : `<div class="ch-placeholder">${escHtml(ch.name.charAt(0) || '?')}</div>`;
 
     item.innerHTML = `
       ${logoHtml}
@@ -829,9 +833,24 @@ function showToast(msg) {
 
 // ── HELPERS ──
 function escHtml(s) {
+  if (!s) return '';
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[c]);
+}
+
+function handleLogoError(img, originalUrl) {
+  // If we haven't tried the proxy yet, try it now
+  if (!img.dataset.proxied && originalUrl && !img.src.includes('action=proxy')) {
+    img.dataset.proxied = 'true';
+    img.src = `?action=proxy&url=${encodeURIComponent(originalUrl)}`;
+  } else {
+    // If proxy also failed or wasn't applicable, show placeholder
+    img.style.display = 'none';
+    if (img.nextSibling && img.nextSibling.classList.contains('ch-placeholder')) {
+      img.nextSibling.style.display = 'flex';
+    }
+  }
 }
 
 // Auto-show load panel on first visit
